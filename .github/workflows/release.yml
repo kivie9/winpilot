@@ -1,0 +1,59 @@
+name: Release WinPilot
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore WinPilot.sln
+
+      - name: Run tests
+        run: dotnet test tests/WinPilot.Core.Tests/WinPilot.Core.Tests.csproj -c Release --no-restore
+
+      - name: Publish single-file WinPilot.exe
+        run: |
+          dotnet publish src/WinPilot.App/WinPilot.App.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained false `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -o publish
+
+      - name: Package zip archive
+        shell: pwsh
+        run: |
+          Compress-Archive -Path publish\* -DestinationPath WinPilot-win-x64.zip -Force
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          name: WinPilot ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          files: |
+            publish/WinPilot.exe
+            WinPilot-win-x64.zip
