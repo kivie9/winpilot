@@ -217,11 +217,11 @@ public sealed class AutomationOrchestrator
 
         if (result.AllSucceeded)
         {
-            _logger.Success(LogCategory.Shutdown, $"[Wake] {result.Summary}");
+            _logger.Success(LogCategory.Session, $"[Wake] {result.Summary}");
         }
         else
         {
-            _logger.Warning(LogCategory.Shutdown, $"[Wake] {result.Summary}");
+            _logger.Warning(LogCategory.Session, $"[Wake] {result.Summary}");
         }
 
         StateChanged?.Invoke();
@@ -347,6 +347,10 @@ public sealed class AutomationOrchestrator
             context,
             config.Telegram.ParseMode);
 
+        LogCategory logCategory = kind is ShutdownEventKind.Sleep or ShutdownEventKind.Wake or ShutdownEventKind.Lock or ShutdownEventKind.Unlock
+            ? LogCategory.Session
+            : LogCategory.Shutdown;
+
         int timeoutMs = Math.Clamp(config.Telegram.ShutdownTimeoutMs, 1000, 4500);
         using var cts = new CancellationTokenSource(timeoutMs);
 
@@ -380,12 +384,12 @@ public sealed class AutomationOrchestrator
                 config.Stats.LastTelegramSentAt = DateTimeOffset.Now;
                 config.Stats.LastTelegramStatus = result.Summary;
                 TryPersistStats(config);
-                _logger.Success(LogCategory.Shutdown, $"[{eventLabel}] {result.Summary}");
+                _logger.Success(logCategory, $"[{eventLabel}] {result.Summary}");
             }
             else
             {
                 LastShutdownStatus = $"Lỗi gửi ({eventLabel}): {result.Summary}";
-                _logger.Warning(LogCategory.Shutdown, $"[{eventLabel}] {result.Summary}");
+                _logger.Warning(logCategory, $"[{eventLabel}] {result.Summary}");
             }
 
             StateChanged?.Invoke();
@@ -394,7 +398,7 @@ public sealed class AutomationOrchestrator
         catch (Exception ex)
         {
             LastShutdownStatus = $"Timeout/Lỗi ({eventLabel}): {ex.Message}";
-            _logger.Error(LogCategory.Shutdown, $"[{eventLabel}] Thất bại: {ex.Message}");
+            _logger.Error(logCategory, $"[{eventLabel}] Thất bại: {ex.Message}");
             StateChanged?.Invoke();
             return new NotificationBatchResult(false, false, Array.Empty<RecipientSendResult>(), ex.Message);
         }

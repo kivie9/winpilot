@@ -14,7 +14,8 @@ public enum LogCategory
     Launcher = 1,
     Telegram = 2,
     Shutdown = 3,
-    Settings = 4
+    Settings = 4,
+    Session = 5
 }
 
 public sealed record LogEntry(
