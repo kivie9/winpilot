@@ -1,14 +1,20 @@
 # WinPilot — Trung tâm Tự động hóa Windows
 
-Ứng dụng desktop tập trung cho Windows giúp bạn:
-1. **Khởi động cùng Windows** (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` với cờ `--startup`), chạy ẩn dưới khay hệ thống (System Tray).
-2. **Tự động mở các ứng dụng bạn thiết lập** (`.exe`, `.lnk`, `.bat`, thư mục, hoặc URL) hỗ trợ kéo-thả, chọn từ Start Menu, độ trễ từng app, chạy quyền Admin, và bỏ qua nếu đang chạy sẵn.
-3. **Gửi thông báo Telegram song song khi bật máy** (tự động chờ & thử lại khi Wi-Fi/mạng mới kết nối lúc khởi động).
-4. **Gửi thông báo Telegram trước khi máy tắt / khởi động lại / đăng xuất** thông qua cơ chế Win32 `WM_QUERYENDSESSION` + `WM_ENDSESSION` + `ShutdownBlockReasonCreate` với độ ưu tiên tắt máy cao (`SetProcessShutdownParameters(0x3FF, 0)`).
+Ứng dụng desktop (WPF + WebView2) giúp tự động hóa quy trình khởi động ứng dụng và giám sát trạng thái nguồn / phiên làm việc trên Windows với thông báo qua Telegram & Webhook.
 
-## Chạy ứng dụng
+## Tính năng chính
 
-- **File chạy trực tiếp (Release):** `dist\WinPilot.exe`
+1. **Khởi động cùng Windows** (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` với cờ `--startup`), chạy ẩn gọn nhẹ dưới khay hệ thống (System Tray).
+2. **Tự động mở ứng dụng theo Profile**: hỗ trợ `.exe`, `.lnk`, `.bat`, thư mục hoặc URL; kéo-thả, quét từ Start Menu, thiết lập độ trễ từng app, chạy quyền Admin, bỏ qua nếu đang chạy sẵn, và điều kiện theo ngày trong tuần / Wi-Fi SSID.
+3. **Thông báo Telegram & Webhook khi bật máy**: tự động chờ & gửi bù khi mạng/Wi-Fi kết nối chậm lúc khởi động.
+4. **Giám sát nguồn & phiên Windows**:
+   - **Tắt máy / Khởi động lại / Đăng xuất** (`Shutdown`): bắt tín hiệu Win32 `WM_QUERYENDSESSION` + `WM_ENDSESSION` + `ShutdownBlockReasonCreate` với độ ưu tiên cao (`SetProcessShutdownParameters(0x3FF, 0)`).
+   - **Ngủ / Thức / Khóa / Mở khóa màn hình** (`Session`): theo dõi `Sleep`, `Wake`, `Lock`, `Unlock` và phân loại riêng dưới nhóm nhật ký `Session`.
+
+## Tải về & Chạy ứng dụng
+
+- **Tải bản dựng sẵn (khuyên dùng):** Vào mục **[Releases](https://github.com/kivie9/winpilot/releases/latest)** để tải `WinPilot.exe` (hoặc `WinPilot-win-x64.zip`).
+  - Yêu cầu: Windows 10/11 (x64) và [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0).
 - **Build & Test từ mã nguồn:**
   ```powershell
   dotnet build WinPilot.sln
@@ -18,9 +24,18 @@
 ## Hướng dẫn cấu hình nhanh
 
 1. Mở `WinPilot.exe`.
-2. Vào tab **Ứng dụng khởi động** để thêm các phần mềm cần tự mở (kéo thả `.exe`/`.lnk` vào hoặc bấm **+ Chọn từ Start Menu**).
-3. Vào tab **Telegram & Thông báo**:
-   - Dán **Bot Token** từ `@BotFather` và bấm **Kiểm tra Bot**. Token được mã hóa bảo mật theo tài khoản Windows (DPAPI) khi lưu vào `%AppData%\WinPilot\config.json`.
+2. Vào tab **Ứng dụng khởi động** để thêm phần mềm cần tự mở (kéo thả `.exe`/`.lnk` vào hoặc chọn từ Start Menu).
+3. Vào tab **Thông báo & Kênh**:
+   - Dán **Bot Token** từ `@BotFather` và bấm **Kiểm tra Bot**. Token được mã hóa bằng Windows DPAPI trước khi lưu tại `%AppData%\WinPilot\config.json`.
    - Nhập **Chat ID** (hỗ trợ nhiều ID cách nhau bởi dấu phẩy) hoặc nhắn `/start` cho Bot rồi bấm **Tìm Chat ID tự động**.
-   - Bấm **Test gửi ngay** và **Giả lập tắt máy (Test)** để kiểm tra tin nhắn.
-4. Vào tab **Tổng quan** hoặc **Cài đặt hệ thống**, bật **Tự động khởi động WinPilot cùng Windows**.
+   - Bấm **Test gửi ngay** / **Giả lập tắt máy (Test)** để kiểm tra tin nhắn.
+4. Vào tab **Tổng quan** hoặc **Cài đặt**, bật **Tự động khởi động cùng Windows**.
+
+## Phát hành phiên bản mới (GitHub Actions)
+
+Workflow tại `.github/workflows/release.yml` tự động chạy test, build `WinPilot.exe` + `WinPilot-win-x64.zip` và tạo **GitHub Release** mỗi khi push tag `v*.*.*`:
+
+```powershell
+git tag v1.0.0
+git push origin v1.0.0
+```
