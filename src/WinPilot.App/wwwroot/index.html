@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WinPilot</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">WinPilot</div>
+          <div class="brand-sub">Control Center</div>
+        </div>
+      </div>
+
+      <nav class="nav-list">
+        <button class="nav-item active" data-tab="dashboard">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+          <span>Tổng quan</span>
+        </button>
+        <button class="nav-item" data-tab="apps">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
+          <span>Ứng dụng khởi động</span>
+          <span class="nav-badge" id="nav-apps-count">0</span>
+        </button>
+        <button class="nav-item" data-tab="telegram">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+          <span>Thông báo &amp; Kênh</span>
+        </button>
+        <button class="nav-item" data-tab="logs">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/></svg>
+          <span>Nhật ký</span>
+        </button>
+        <button class="nav-item" data-tab="settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Cài đặt</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="status-dot-row">
+          <span class="dot dot-emerald"></span>
+          <span class="status-title">Giám sát tắt máy đang bật</span>
+        </div>
+        <div class="status-sub" id="sidebar-startup-text">Startup Windows: Đang kiểm tra</div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- 1. DASHBOARD -->
+      <section id="tab-dashboard" class="view active">
+        <header class="page-header">
+          <div>
+            <h1>Tổng quan</h1>
+            <p class="subtitle">Quản lý khởi động ứng dụng và thông báo hai đầu bật/tắt máy.</p>
+          </div>
+          <div class="device-pill" id="dash-device-pill">PC</div>
+        </header>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Khởi động cùng Windows</span>
+              <label class="switch">
+                <input type="checkbox" id="dash-autostart-toggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="stat-value" id="dash-startup-status">Đang tắt</div>
+            <div class="stat-meta">Chạy ẩn dưới System Tray khi mở máy</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Profile đang dùng</span>
+              <span class="pill pill-neutral" id="dash-apps-pill">0 bật</span>
+            </div>
+            <div class="stat-value" id="dash-apps-count">0 / 0 ứng dụng</div>
+            <div class="stat-meta" id="dash-last-startup">Chưa chạy lần nào</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Kênh Telegram</span>
+              <span class="pill" id="dash-tg-pill">Chưa cấu hình</span>
+            </div>
+            <div class="stat-value" id="dash-tg-status">Chưa sẵn sàng</div>
+            <div class="stat-meta" id="dash-last-tg">Chưa gửi tin nhắn nào</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Giám sát nguồn &amp; phiên</span>
+              <span class="pill pill-emerald">Win32 Hook</span>
+            </div>
+            <div class="stat-value">Đang lắng nghe</div>
+            <div class="stat-meta" id="dash-last-shutdown">WM_QUERYENDSESSION ưu tiên cao</div>
+          </div>
+        </div>
+
+        <div class="card section-gap">
+          <div class="card-header-row">
+            <div>
+              <h2>Thao tác nhanh</h2>
+              <p class="card-desc">Kiểm tra trực tiếp luồng mở ứng dụng và gửi thông báo trước khi khởi động lại máy.</p>
+            </div>
+          </div>
+          <div class="action-bar">
+            <button class="btn btn-primary" id="btn-run-startup">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+              <span>Chạy mở App ngay</span>
+            </button>
+            <button class="btn btn-secondary" id="btn-test-startup-tg">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+              <span>Test Telegram (Khởi động)</span>
+            </button>
+            <button class="btn btn-secondary" id="btn-test-shutdown-tg">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+              <span>Giả lập tắt máy (Test)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header-row">
+            <h2>Hoạt động gần đây</h2>
+            <span class="muted-xs">Tự động cập nhật</span>
+          </div>
+          <div class="log-feed" id="dash-recent-logs"></div>
+        </div>
+      </section>
+
+      <!-- 2. STARTUP APPS -->
+      <section id="tab-apps" class="view">
+        <header class="page-header">
+          <div>
+            <h1>Ứng dụng khởi động</h1>
+            <p class="subtitle">Quản lý theo Profile, điều kiện chạy hoặc kéo thả trực tiếp file .exe / .lnk vào cửa sổ.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary" id="btn-run-apps-tab">Chạy thử Profile</button>
+            <button class="btn btn-primary" id="btn-add-browse">+ Chọn file (.exe, .lnk)</button>
+          </div>
+        </header>
+
+        <!-- Profile Switcher -->
+        <div class="profile-bar section-gap-sm">
+          <div class="profile-pills" id="profile-pills"></div>
+          <div class="profile-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-new-profile" type="button">+ Profile mới</button>
+            <button class="btn btn-danger-outline btn-sm" id="btn-delete-profile" type="button">Xóa Profile</button>
+          </div>
+        </div>
+
+        <div class="toolbar-row">
+          <div class="search-box">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" id="apps-search" placeholder="Lọc theo tên hoặc đường dẫn..." />
+          </div>
+          <div class="toolbar-right">
+            <button class="btn btn-secondary" id="btn-add-installed">Chọn từ Start Menu</button>
+            <button class="btn btn-secondary" id="btn-add-manual">Thêm thủ công / URL</button>
+          </div>
+        </div>
+
+        <div class="card list-card section-gap">
+          <div id="apps-list" class="apps-list"></div>
+          <div id="apps-empty" class="empty-state hidden">
+            <div class="empty-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
+            </div>
+            <div class="empty-title">Profile này chưa có ứng dụng nào</div>
+            <div class="empty-desc">Kéo thả file <code>.exe</code> / <code>.lnk</code> vào đây, hoặc bấm <strong>Chọn từ Start Menu</strong>.</div>
+          </div>
+        </div>
+
+        <!-- Smart Conditions Card -->
+        <div class="card">
+          <div class="row-between section-gap-sm">
+            <div>
+              <h2>Điều kiện tự động chạy khi bật máy</h2>
+              <p class="card-desc">Chỉ tự mở ứng dụng vào các ngày chọn sẵn hoặc khi đang kết nối đúng Wi-Fi.</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="cond-enabled" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="two-col-grid">
+            <div class="field-group">
+              <label class="field-label">Ngày trong tuần được phép chạy</label>
+              <div class="days-row" id="cond-days">
+                <button type="button" class="day-pill" data-day="1">T2</button>
+                <button type="button" class="day-pill" data-day="2">T3</button>
+                <button type="button" class="day-pill" data-day="3">T4</button>
+                <button type="button" class="day-pill" data-day="4">T5</button>
+                <button type="button" class="day-pill" data-day="5">T6</button>
+                <button type="button" class="day-pill" data-day="6">T7</button>
+                <button type="button" class="day-pill" data-day="0">CN</button>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Tên Wi-Fi (SSID) cho phép (trống = mọi mạng)</label>
+              <div class="input-row">
+                <input type="text" id="cond-wifi" placeholder="Ví dụ: Office_5G, HomeWiFi" />
+                <button class="btn btn-secondary btn-sm" id="btn-fill-wifi" type="button">Lấy Wi-Fi hiện tại</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-footer-right">
+            <button class="btn btn-secondary btn-sm" id="btn-save-conditions" type="button">Lưu điều kiện</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. TELEGRAM & WEBHOOKS -->
+      <section id="tab-telegram" class="view">
+        <header class="page-header">
+          <div>
+            <h1>Thông báo &amp; Kênh kết nối</h1>
+            <p class="subtitle">Cấu hình Telegram Bot, điều khiển từ xa, sự kiện nguồn và Webhook đa nền tảng.</p>
+          </div>
+          <button class="btn btn-primary" id="btn-save-telegram">Lưu cấu hình</button>
+        </header>
+
+        <div class="card section-gap">
+          <div class="row-between section-gap-sm">
+            <div>
+              <h2>Telegram Bot &amp; Người nhận</h2>
+              <p class="card-desc">Bot Token được mã hóa bằng Windows DPAPI trước khi lưu xuống ổ cứng.</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="tg-enabled" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Bot Token (từ @BotFather)</label>
+            <div class="input-row">
+              <div class="input-with-btn">
+                <input type="password" id="tg-token" placeholder="123456789:ABCdefGHIjklMNOpqrs..." />
+                <button class="btn-inline" id="btn-toggle-token" type="button">Hiện</button>
+              </div>
+              <button class="btn btn-secondary" id="btn-test-bot" type="button">Kiểm tra Bot</button>
+            </div>
+            <div id="bot-verify-badge" class="inline-feedback hidden"></div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Chat ID người nhận / nhóm (nhiều ID cách nhau bởi dấu phẩy)</label>
+            <div class="input-row">
+              <input type="text" id="tg-chat-ids" placeholder="Ví dụ: 123456789, -100987654321" />
+              <button class="btn btn-secondary" id="btn-discover-chats" type="button">Tìm Chat ID tự động</button>
+            </div>
+            <div id="discovered-chats-wrap" class="discovered-list hidden"></div>
+          </div>
+        </div>
+
+        <div class="two-col-grid section-gap">
+          <!-- Startup Template -->
+          <div class="card">
+            <div class="row-between section-gap-sm">
+              <div class="title-with-dot">
+                <span class="dot dot-emerald"></span>
+                <h2>Khi khởi động máy</h2>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="tg-notify-startup" />
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Chế độ gửi</label>
+              <div class="segmented" id="startup-mode-segmented">
+                <button type="button" class="seg-btn active" data-value="ParallelImmediate">Song song khi mở App</button>
+                <button type="button" class="seg-btn" data-value="AfterAppsLaunched">Sau khi mở xong</button>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Nội dung mẫu (HTML)</label>
+              <textarea id="tg-startup-template" rows="5"></textarea>
+              <div class="chips-row" data-target="tg-startup-template">
+                <button type="button" class="chip" data-var="{pc_name}">{pc_name}</button>
+                <button type="button" class="chip" data-var="{user}">{user}</button>
+                <button type="button" class="chip" data-var="{time}">{time}</button>
+                <button type="button" class="chip" data-var="{date}">{date}</button>
+                <button type="button" class="chip" data-var="{local_ip}">{local_ip}</button>
+                <button type="button" class="chip" data-var="{tailscale_ip}">{tailscale_ip}</button>
+                <button type="button" class="chip" data-var="{apps_count}">{apps_count}</button>
+                <button type="button" class="chip" data-var="{apps_list}">{apps_list}</button>
+              </div>
+            </div>
+
+            <div class="tg-preview-well">
+              <div class="tg-bubble">
+                <div class="tg-bubble-sender">WinPilot Bot</div>
+                <div class="tg-bubble-body" id="preview-startup"></div>
+                <div class="tg-bubble-time">09:42 ✓✓</div>
+              </div>
+            </div>
+
+            <div class="card-footer-right">
+              <button class="btn btn-secondary btn-sm" id="btn-test-startup-inline" type="button">Test gửi tin khởi động</button>
+            </div>
+          </div>
+
+          <!-- Shutdown, Power & Lock Events -->
+          <div class="card">
+            <div class="row-between section-gap-sm">
+              <div class="title-with-dot">
+                <span class="dot dot-amber"></span>
+                <h2>Tắt máy &amp; Sự kiện nguồn</h2>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="tg-notify-shutdown" />
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="events-mini-grid section-gap-sm">
+              <div class="event-toggle-item">
+                <span>Đăng xuất (Logoff)</span>
+                <label class="switch"><input type="checkbox" id="tg-notify-logoff" /><span class="slider"></span></label>
+              </div>
+              <div class="event-toggle-item">
+                <span>Đi vào Sleep</span>
+                <label class="switch"><input type="checkbox" id="tg-notify-sleep" /><span class="slider"></span></label>
+              </div>
+              <div class="event-toggle-item">
+                <span>Mở lại từ Sleep</span>
+                <label class="switch"><input type="checkbox" id="tg-notify-wake" /><span class="slider"></span></label>
+              </div>
+              <div class="event-toggle-item">
+                <span>Khóa máy (Win+L)</span>
+                <label class="switch"><input type="checkbox" id="tg-notify-lock" /><span class="slider"></span></label>
+              </div>
+              <div class="event-toggle-item">
+                <span>Mở khóa máy</span>
+                <label class="switch"><input type="checkbox" id="tg-notify-unlock" /><span class="slider"></span></label>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Timeout tối đa trước khi tắt (ms: 1000 – 4500)</label>
+              <input type="number" id="tg-shutdown-timeout" min="1000" max="4500" step="100" />
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Nội dung mẫu (HTML)</label>
+              <textarea id="tg-shutdown-template" rows="4"></textarea>
+              <div class="chips-row" data-target="tg-shutdown-template">
+                <button type="button" class="chip" data-var="{event}">{event}</button>
+                <button type="button" class="chip" data-var="{pc_name}">{pc_name}</button>
+                <button type="button" class="chip" data-var="{user}">{user}</button>
+                <button type="button" class="chip" data-var="{time}">{time}</button>
+                <button type="button" class="chip" data-var="{date}">{date}</button>
+                <button type="button" class="chip" data-var="{tailscale_ip}">{tailscale_ip}</button>
+                <button type="button" class="chip" data-var="{uptime}">{uptime}</button>
+              </div>
+            </div>
+
+            <div class="tg-preview-well">
+              <div class="tg-bubble">
+                <div class="tg-bubble-sender">WinPilot Bot</div>
+                <div class="tg-bubble-body" id="preview-shutdown"></div>
+                <div class="tg-bubble-time">23:15 ✓✓</div>
+              </div>
+            </div>
+
+            <div class="card-footer-right">
+              <button class="btn btn-secondary btn-sm" id="btn-test-shutdown-inline" type="button">Giả lập tắt máy (Test)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Remote Commands & Multi-Channel Webhooks -->
+        <div class="two-col-grid">
+          <div class="card">
+            <div class="row-between section-gap-sm">
+              <div>
+                <h2>Điều khiển từ xa qua Bot</h2>
+                <p class="card-desc">Nhắn <code>/status</code>, <code>/apps</code>, <code>/run</code> từ Telegram về máy.</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="tg-remote-enabled" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="field-group" style="margin-bottom:0">
+              <label class="field-label">Chat ID được phép ra lệnh (để trống = dùng chung Chat ID ở trên)</label>
+              <input type="text" id="tg-remote-chats" placeholder="Chỉ nhận lệnh từ các Chat ID này" />
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="row-between section-gap-sm">
+              <div>
+                <h2>Webhook đa kênh</h2>
+                <p class="card-desc">Gửi song song tới Discord, Slack hoặc HTTP API khác.</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" id="btn-add-webhook" type="button">+ Thêm Webhook</button>
+            </div>
+            <div id="webhooks-list" class="webhooks-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. LOGS -->
+      <section id="tab-logs" class="view">
+        <header class="page-header">
+          <div>
+            <h1>Nhật ký hoạt động</h1>
+            <p class="subtitle">Lịch sử mở ứng dụng, kết nối Telegram, Webhook và tín hiệu nguồn.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary" id="btn-open-logs-folder">Mở thư mục Log</button>
+            <button class="btn btn-danger-outline" id="btn-clear-logs">Xóa màn hình</button>
+          </div>
+        </header>
+
+        <div class="toolbar-row">
+          <div class="segmented" id="log-filter-segmented">
+            <button type="button" class="seg-btn active" data-value="ALL">Tất cả</button>
+            <button type="button" class="seg-btn" data-value="Success">Thành công</button>
+            <button type="button" class="seg-btn" data-value="Issues">Cảnh báo &amp; Lỗi</button>
+          </div>
+        </div>
+
+        <div class="card list-card">
+          <div class="log-feed log-feed-full" id="full-logs-list"></div>
+        </div>
+      </section>
+
+      <!-- 5. SETTINGS -->
+      <section id="tab-settings" class="view">
+        <header class="page-header">
+          <div>
+            <h1>Cài đặt hệ thống</h1>
+            <p class="subtitle">Hành vi khởi động, khay hệ thống và sao lưu cấu hình.</p>
+          </div>
+          <button class="btn btn-primary" id="btn-save-settings">Lưu cài đặt</button>
+        </header>
+
+        <div class="card section-gap">
+          <h2 class="section-gap-sm">Khởi động &amp; Khay hệ thống</h2>
+
+          <div class="setting-row">
+            <div>
+              <div class="setting-title">Tự động khởi động cùng Windows</div>
+              <div class="setting-desc">Đăng ký vào Registry <code>HKCU\...\Run</code> với cờ <code>--startup</code>.</div>
+              <div class="setting-code" id="settings-reg-cmd">Chưa đăng ký</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="set-autostart" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <div class="setting-title">Thu nhỏ xuống System Tray khi Windows khởi động</div>
+              <div class="setting-desc">Chạy âm thầm ở góc phải màn hình, không làm phiền khi vừa mở máy.</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="set-start-minimized" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div>
+              <div class="setting-title">Ẩn xuống Tray khi bấm nút Đóng (X)</div>
+              <div class="setting-desc">Giữ tiến trình lắng nghe sự kiện tắt máy luôn hoạt động.</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="set-minimize-close" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row no-border">
+            <div>
+              <div class="setting-title">Chỉ tự chạy danh sách App khi mở cùng Windows</div>
+              <div class="setting-desc">Nếu tắt, mở thủ công WinPilot cũng sẽ tự động chạy danh sách App.</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="set-only-startup-arg" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="two-col-grid top-gap">
+            <div class="field-group">
+              <label class="field-label">Độ trễ ban đầu khi mới vào Windows (giây)</label>
+              <input type="number" id="set-startup-delay" min="0" max="300" />
+            </div>
+            <div class="field-group">
+              <label class="field-label">Thời gian tối đa chờ có mạng lúc bật máy (giây)</label>
+              <input type="number" id="set-network-wait" min="0" max="300" />
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="section-gap-sm">Dữ liệu &amp; Sao lưu</h2>
+          <p class="card-desc section-gap-sm" id="settings-config-path"></p>
+          <div class="action-bar">
+            <button class="btn btn-secondary" id="btn-export-config">Xuất cấu hình (.json)</button>
+            <button class="btn btn-secondary" id="btn-import-config">Nhập cấu hình (.json)</button>
+            <button class="btn btn-secondary" id="btn-open-data-folder">Mở thư mục dữ liệu</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal: App Editor -->
+  <div class="modal-backdrop hidden" id="modal-app-editor">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-app-title">Thêm ứng dụng</h3>
+        <button class="icon-btn" id="btn-close-app-modal" type="button">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-app-id" />
+        <div class="field-group">
+          <label class="field-label">Tên hiển thị</label>
+          <input type="text" id="edit-app-name" placeholder="Ví dụ: Google Chrome" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Đường dẫn (.exe, .lnk, .bat, thư mục hoặc URL)</label>
+          <input type="text" id="edit-app-path" placeholder="C:\Program Files\..." />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Tham số dòng lệnh (Arguments - tùy chọn)</label>
+          <input type="text" id="edit-app-args" placeholder="--minimized" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Thư mục làm việc (Working Directory - tùy chọn)</label>
+          <div class="input-row">
+            <input type="text" id="edit-app-workdir" />
+            <button class="btn btn-secondary" id="btn-browse-workdir" type="button">Chọn...</button>
+          </div>
+        </div>
+        <div class="two-col-grid">
+          <div class="field-group">
+            <label class="field-label">Độ trễ mở (giây)</label>
+            <input type="number" id="edit-app-delay" min="0" max="600" value="0" />
+          </div>
+          <div class="field-group">
+            <label class="field-label">Kiểu cửa sổ</label>
+            <div class="custom-select" id="edit-app-window-select" data-value="Normal">
+              <button type="button" class="custom-select-trigger">
+                <span class="custom-select-label">Bình thường (Normal)</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="custom-select-menu">
+                <button type="button" class="custom-select-option selected" data-value="Normal">Bình thường (Normal)</button>
+                <button type="button" class="custom-select-option" data-value="Minimized">Thu nhỏ (Minimized)</button>
+                <button type="button" class="custom-select-option" data-value="Maximized">Phóng to (Maximized)</button>
+                <button type="button" class="custom-select-option" data-value="Hidden">Ẩn (Hidden)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="setting-row compact">
+          <span class="setting-title">Bỏ qua nếu ứng dụng đang chạy sẵn</span>
+          <label class="switch"><input type="checkbox" id="edit-app-skip" checked /><span class="slider"></span></label>
+        </div>
+        <div class="setting-row compact no-border">
+          <span class="setting-title">Chạy với quyền Administrator</span>
+          <label class="switch"><input type="checkbox" id="edit-app-admin" /><span class="slider"></span></label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-cancel-app-modal" type="button">Hủy</button>
+        <button class="btn btn-primary" id="btn-save-app-modal" type="button">Lưu ứng dụng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Installed Apps Picker -->
+  <div class="modal-backdrop hidden" id="modal-installed-picker">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3>Chọn từ Start Menu &amp; Desktop</h3>
+          <p class="card-desc">Click để chọn một hoặc nhiều ứng dụng có sẵn trên máy.</p>
+        </div>
+        <button class="icon-btn" id="btn-close-picker-modal" type="button">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="search-box section-gap-sm" style="max-width:100%">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" id="picker-search" placeholder="Tìm ứng dụng..." />
+        </div>
+        <div class="picker-list" id="picker-list"></div>
+      </div>
+      <div class="modal-footer">
+        <span class="muted-xs" id="picker-selected-count" style="margin-right:auto">Đã chọn 0</span>
+        <button class="btn btn-secondary" id="btn-cancel-picker-modal" type="button">Hủy</button>
+        <button class="btn btn-primary" id="btn-confirm-picker-modal" type="button">Thêm đã chọn</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: New Profile -->
+  <div class="modal-backdrop hidden" id="modal-profile">
+    <div class="modal" style="width:400px">
+      <div class="modal-header">
+        <h3>Tạo Profile mới</h3>
+        <button class="icon-btn" id="btn-close-profile-modal" type="button">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Tên Profile (ví dụ: Làm việc, Chơi game, Tối giản)</label>
+          <input type="text" id="new-profile-name" placeholder="Nhập tên Profile..." />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-cancel-profile-modal" type="button">Hủy</button>
+        <button class="btn btn-primary" id="btn-save-profile-modal" type="button">Tạo Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Webhook Editor -->
+  <div class="modal-backdrop hidden" id="modal-webhook">
+    <div class="modal" style="width:460px">
+      <div class="modal-header">
+        <h3>Thêm kênh Webhook</h3>
+        <button class="icon-btn" id="btn-close-wh-modal" type="button">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label class="field-label">Tên hiển thị</label>
+          <input type="text" id="wh-name" placeholder="Ví dụ: Discord Server" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Loại kênh</label>
+          <div class="custom-select" id="wh-type-select" data-value="Discord">
+            <button type="button" class="custom-select-trigger">
+              <span class="custom-select-label">Discord Webhook</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="custom-select-menu">
+              <button type="button" class="custom-select-option selected" data-value="Discord">Discord Webhook</button>
+              <button type="button" class="custom-select-option" data-value="Slack">Slack Webhook</button>
+              <button type="button" class="custom-select-option" data-value="CustomJson">Custom JSON POST</button>
+            </div>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Webhook URL</label>
+          <input type="text" id="wh-url" placeholder="https://discord.com/api/webhooks/..." />
+        </div>
+        <div class="setting-row compact">
+          <span class="setting-title">Gửi khi khởi động máy</span>
+          <label class="switch"><input type="checkbox" id="wh-startup" checked /><span class="slider"></span></label>
+        </div>
+        <div class="setting-row compact no-border">
+          <span class="setting-title">Gửi khi tắt máy / nguồn</span>
+          <label class="switch"><input type="checkbox" id="wh-shutdown" checked /><span class="slider"></span></label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-cancel-wh-modal" type="button">Hủy</button>
+        <button class="btn btn-primary" id="btn-save-wh-modal" type="button">Lưu Webhook</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Stack -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
