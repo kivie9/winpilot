@@ -26,6 +26,8 @@ public sealed class AppConfig
 
     public List<CustomWebhookChannel> ExtraWebhooks { get; set; } = new();
 
+    public VmwareSettings Vmware { get; set; } = new();
+
     public RuntimeStats Stats { get; set; } = new();
 }
 
@@ -152,6 +154,26 @@ public sealed class CustomWebhookChannel
     public bool Enabled { get; set; } = true;
     public bool NotifyOnStartup { get; set; } = true;
     public bool NotifyOnShutdown { get; set; } = true;
+}
+
+public sealed class VmwareSettings
+{
+    public string VmrunPath { get; set; } = string.Empty;
+    public bool AutoStartEnabled { get; set; } = true;
+    public bool StopVmsOnShutdown { get; set; } = false;
+    public List<VmwareVmEntry> Vms { get; set; } = new();
+}
+
+public sealed class VmwareVmEntry
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = string.Empty;
+    public string VmxPath { get; set; } = string.Empty;
+    public bool Enabled { get; set; } = true;
+    public bool Headless { get; set; } = true;
+    public int DelaySeconds { get; set; }
+    public int Order { get; set; }
+    public string Notes { get; set; } = string.Empty;
 }
 
 public sealed class RuntimeStats

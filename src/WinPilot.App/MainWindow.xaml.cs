@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private readonly AppLauncherService _launcher;
     private readonly TelegramNotificationService _telegram;
     private readonly WebhookNotificationService _webhooks;
+    private readonly VmwareService _vmware;
     private readonly AutomationOrchestrator _orchestrator;
     private readonly TelegramCommandListener _commandListener;
     private readonly Action _onTrayRefresh;
@@ -47,6 +48,7 @@ public partial class MainWindow : Window
         AppLauncherService launcher,
         TelegramNotificationService telegram,
         WebhookNotificationService webhooks,
+        VmwareService vmware,
         AutomationOrchestrator orchestrator,
         TelegramCommandListener commandListener,
         Action onTrayRefresh,
@@ -62,6 +64,7 @@ public partial class MainWindow : Window
         _launcher = launcher;
         _telegram = telegram;
         _webhooks = webhooks;
+        _vmware = vmware;
         _orchestrator = orchestrator;
         _commandListener = commandListener;
         _onTrayRefresh = onTrayRefresh;
@@ -575,6 +578,7 @@ public partial class MainWindow : Window
                     _config.StartupApps = imported.StartupApps;
                     _config.Conditions = imported.Conditions;
                     _config.ExtraWebhooks = imported.ExtraWebhooks;
+                    _config.Vmware = imported.Vmware;
                     if (!string.IsNullOrWhiteSpace(imported.Telegram.BotToken))
                     {
                         _config.Telegram.BotToken = imported.Telegram.BotToken;
@@ -614,6 +618,214 @@ public partial class MainWindow : Window
             case "clearLogs":
                 _logger.Clear();
                 return GetLogsSnapshot();
+
+            case "refreshVms":
+                return BuildStatePayload();
+
+            case "scanVmwareVms":
+            {
+                var discovered = await Task.Run(() => VmwareService.DiscoverInventoryVms());
+                int added = 0;
+                foreach (var vm in discovered)
+                {
+                    if (_config.Vmware.Vms.Any(x => string.Equals(x.VmxPath, vm.VmxPath, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        continue;
+                    }
+
+                    _config.Vmware.Vms.Add(new VmwareVmEntry
+                    {
+                        Name = vm.Name,
+                        VmxPath = vm.VmxPath,
+                        Enabled = true,
+                        Headless = true,
+                        Order = _config.Vmware.Vms.Count
+                    });
+                    added++;
+                    _logger.Info(LogCategory.Vmware, $"Đã quét thêm máy ảo: {vm.Name}");
+                }
+
+                if (added > 0) _configService.Save(_config);
+                return new { added, total = discovered.Count, state = BuildStatePayload() };
+            }
+
+            case "browseVmFile":
+            {
+                var dlg = new Microsoft.Win32.OpenFileDialog
+                {
+                    Title = "Chọn file cấu hình máy ảo VMware (.vmx)",
+                    Multiselect = true,
+                    Filter = "VMware Virtual Machine (*.vmx)|*.vmx|Tất cả tệp (*.*)|*.*"
+                };
+
+                if (dlg.ShowDialog(this) == true)
+                {
+                    foreach (string file in dlg.FileNames)
+                    {
+                        if (_config.Vmware.Vms.Any(x => string.Equals(x.VmxPath, file, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            continue;
+                        }
+
+                        string name = VmwareService.ParseVmxDisplayName(file)
+                            ?? Path.GetFileNameWithoutExtension(file);
+                        _config.Vmware.Vms.Add(new VmwareVmEntry
+                        {
+                            Name = string.IsNullOrWhiteSpace(name) ? file : name,
+                            VmxPath = file,
+                            Enabled = true,
+                            Headless = true,
+                            Order = _config.Vmware.Vms.Count
+                        });
+                        _logger.Info(LogCategory.Vmware, $"Đã thêm máy ảo: {name}");
+                    }
+                    _configService.Save(_config);
+                }
+
+                return BuildStatePayload();
+            }
+
+            case "browseVmrunFile":
+            {
+                var dlg = new Microsoft.Win32.OpenFileDialog
+                {
+                    Title = "Chọn file vmrun.exe của VMware",
+                    Filter = "vmrun.exe|vmrun.exe|Ứng dụng (*.exe)|*.exe"
+                };
+                if (dlg.ShowDialog(this) == true)
+                {
+                    _config.Vmware.VmrunPath = dlg.FileName;
+                    _configService.Save(_config);
+                    _logger.Info(LogCategory.Vmware, $"Đã chọn vmrun.exe: {dlg.FileName}");
+                }
+                return BuildStatePayload();
+            }
+
+            case "saveVmwareSettings":
+            {
+                if (payload.TryGetProperty("autoStartEnabled", out var autoEn))
+                    _config.Vmware.AutoStartEnabled = autoEn.GetBoolean();
+                if (payload.TryGetProperty("stopVmsOnShutdown", out var stopSd))
+                    _config.Vmware.StopVmsOnShutdown = stopSd.GetBoolean();
+                if (payload.TryGetProperty("vmrunPath", out var vp))
+                    _config.Vmware.VmrunPath = (vp.GetString() ?? "").Trim();
+
+                _configService.Save(_config);
+                _logger.Success(LogCategory.Vmware, "Đã lưu cài đặt tự động VMware.");
+                return BuildStatePayload();
+            }
+
+            case "saveVm":
+            {
+                var dto = JsonSerializer.Deserialize<VmwareVmEntry>(payload.GetRawText(), BridgeJsonOptions)
+                    ?? throw new InvalidDataException("Dữ liệu máy ảo không hợp lệ.");
+
+                if (string.IsNullOrWhiteSpace(dto.VmxPath))
+                    throw new InvalidOperationException("Vui lòng nhập đường dẫn file .vmx.");
+
+                if (string.IsNullOrWhiteSpace(dto.Name))
+                {
+                    dto.Name = VmwareService.ParseVmxDisplayName(dto.VmxPath)
+                        ?? Path.GetFileNameWithoutExtension(dto.VmxPath);
+                }
+
+                dto.DelaySeconds = Math.Clamp(dto.DelaySeconds, 0, 600);
+
+                int idx = _config.Vmware.Vms.FindIndex(v => v.Id == dto.Id);
+                if (idx >= 0)
+                {
+                    dto.Order = idx;
+                    _config.Vmware.Vms[idx] = dto;
+                    _logger.Info(LogCategory.Vmware, $"Đã cập nhật máy ảo: {dto.Name}");
+                }
+                else
+                {
+                    dto.Id = string.IsNullOrWhiteSpace(dto.Id) ? Guid.NewGuid().ToString("N") : dto.Id;
+                    dto.Order = _config.Vmware.Vms.Count;
+                    _config.Vmware.Vms.Add(dto);
+                    _logger.Info(LogCategory.Vmware, $"Đã thêm máy ảo: {dto.Name}");
+                }
+
+                _configService.Save(_config);
+                return BuildStatePayload();
+            }
+
+            case "toggleVmEnabled":
+            {
+                string id = payload.GetProperty("id").GetString() ?? "";
+                bool enabled = payload.GetProperty("enabled").GetBoolean();
+                var vm = _config.Vmware.Vms.FirstOrDefault(v => v.Id == id);
+                if (vm is not null)
+                {
+                    vm.Enabled = enabled;
+                    _configService.Save(_config);
+                }
+                return BuildStatePayload();
+            }
+
+            case "toggleVmHeadless":
+            {
+                string id = payload.GetProperty("id").GetString() ?? "";
+                bool headless = payload.GetProperty("headless").GetBoolean();
+                var vm = _config.Vmware.Vms.FirstOrDefault(v => v.Id == id);
+                if (vm is not null)
+                {
+                    vm.Headless = headless;
+                    _configService.Save(_config);
+                }
+                return BuildStatePayload();
+            }
+
+            case "reorderVms":
+            {
+                var ids = JsonSerializer.Deserialize<List<string>>(payload.GetProperty("orderedIds").GetRawText(), BridgeJsonOptions) ?? new();
+                var map = _config.Vmware.Vms.ToDictionary(v => v.Id);
+                int order = 0;
+                foreach (string id in ids)
+                {
+                    if (map.TryGetValue(id, out var item)) item.Order = order++;
+                }
+                _config.Vmware.Vms = _config.Vmware.Vms.OrderBy(v => v.Order).ToList();
+                _configService.Save(_config);
+                return BuildStatePayload();
+            }
+
+            case "deleteVm":
+            {
+                string id = payload.GetProperty("id").GetString() ?? "";
+                var vm = _config.Vmware.Vms.FirstOrDefault(v => v.Id == id);
+                if (vm is not null)
+                {
+                    _config.Vmware.Vms.Remove(vm);
+                    _configService.Save(_config);
+                    _logger.Info(LogCategory.Vmware, $"Đã xóa máy ảo khỏi danh sách: {vm.Name}");
+                }
+                return BuildStatePayload();
+            }
+
+            case "startSingleVm":
+            {
+                string id = payload.GetProperty("id").GetString() ?? "";
+                var vm = _config.Vmware.Vms.FirstOrDefault(v => v.Id == id)
+                    ?? throw new InvalidOperationException("Không tìm thấy máy ảo.");
+                var res = await Task.Run(() => _vmware.StartVm(vm, _config.Vmware.VmrunPath));
+                return new { outcome = res.Outcome.ToString(), res.Detail, vmName = vm.Name, state = BuildStatePayload() };
+            }
+
+            case "stopSingleVm":
+            {
+                string id = payload.GetProperty("id").GetString() ?? "";
+                var vm = _config.Vmware.Vms.FirstOrDefault(v => v.Id == id)
+                    ?? throw new InvalidOperationException("Không tìm thấy máy ảo.");
+                var (ok, detail) = await Task.Run(() => _vmware.StopVm(vm, _config.Vmware.VmrunPath));
+                return new { ok, detail, vmName = vm.Name, state = BuildStatePayload() };
+            }
+
+            case "runAllVmsNow":
+            {
+                var summary = await _vmware.StartEnabledVmsAsync(_config.Vmware);
+                return new { summary.StartedCount, summary.SkippedCount, summary.FailedCount, state = BuildStatePayload() };
+            }
 
             default:
                 throw new NotSupportedException($"Hành động không hỗ trợ: {action}");
@@ -687,6 +899,7 @@ public partial class MainWindow : Window
             extraWebhooks = _config.ExtraWebhooks,
             general = _config.General,
             apps,
+            vmware = BuildVmwarePayload(),
             telegram = new
             {
                 _config.Telegram.Enabled,
@@ -716,6 +929,41 @@ public partial class MainWindow : Window
                 lastShutdownStatus = _orchestrator.LastShutdownStatus
             },
             logs = GetLogsSnapshot()
+        };
+    }
+
+    private object BuildVmwarePayload()
+    {
+        string? resolvedVmrun = VmwareService.ResolveVmrunPath(_config.Vmware.VmrunPath);
+        var runningSet = resolvedVmrun is not null
+            ? _vmware.GetRunningVmxPaths(resolvedVmrun)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var vms = _config.Vmware.Vms
+            .OrderBy(v => v.Order)
+            .Select(v => new
+            {
+                v.Id,
+                v.Name,
+                v.VmxPath,
+                v.Enabled,
+                v.Headless,
+                v.DelaySeconds,
+                v.Order,
+                v.Notes,
+                exists = !string.IsNullOrWhiteSpace(v.VmxPath) && File.Exists(v.VmxPath),
+                isRunning = !string.IsNullOrWhiteSpace(v.VmxPath) && runningSet.Contains(v.VmxPath)
+            })
+            .ToList();
+
+        return new
+        {
+            vmrunPath = _config.Vmware.VmrunPath,
+            resolvedVmrunPath = resolvedVmrun ?? string.Empty,
+            vmrunFound = resolvedVmrun is not null,
+            autoStartEnabled = _config.Vmware.AutoStartEnabled,
+            stopVmsOnShutdown = _config.Vmware.StopVmsOnShutdown,
+            vms
         };
     }
 

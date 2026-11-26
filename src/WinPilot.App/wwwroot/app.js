@@ -128,6 +128,7 @@
     renderDashboard();
     renderProfilesAndConditions();
     renderApps();
+    renderVmware();
     renderTelegram();
     renderWebhooks();
     renderLogs();
@@ -822,6 +823,218 @@
     }
   });
   document.getElementById('btn-open-data-folder').addEventListener('click', () => rpc('openDataFolder'));
+
+  // ---- VMware VMs ----
+  function renderVmware() {
+    const vmw = state.vmware || { vmrunFound: false, resolvedVmrunPath: '', autoStartEnabled: true, stopVmsOnShutdown: false, vms: [] };
+    const vms = vmw.vms || [];
+
+    document.getElementById('nav-vms-count').textContent = vms.length;
+    document.getElementById('vm-autostart-enabled').checked = !!vmw.autoStartEnabled;
+    document.getElementById('vm-stop-shutdown').checked = !!vmw.stopVmsOnShutdown;
+
+    const statusEl = document.getElementById('vm-vmrun-status');
+    if (vmw.vmrunFound) {
+      statusEl.innerHTML = `<span class="pill pill-emerald" style="margin-right:6px">Sẵn sàng</span> <code>${escapeHtml(vmw.resolvedVmrunPath)}</code>`;
+    } else {
+      statusEl.innerHTML = `<span class="pill pill-red" style="margin-right:6px">Chưa tìm thấy vmrun.exe</span> Hãy cài VMware Workstation hoặc chọn file vmrun.exe thủ công.`;
+    }
+
+    const listEl = document.getElementById('vms-list');
+    const emptyEl = document.getElementById('vms-empty');
+    emptyEl.classList.toggle('hidden', vms.length > 0);
+
+    listEl.innerHTML = vms.map((vm, idx) => {
+      const badges = [
+        vm.isRunning
+          ? `<span class="pill pill-emerald">Đang chạy</span>`
+          : `<span class="pill pill-neutral">Đã tắt</span>`,
+        vm.headless
+          ? `<span class="pill pill-neutral">Chạy ngầm (nogui)</span>`
+          : `<span class="pill pill-amber">Hiện cửa sổ (GUI)</span>`,
+        vm.delaySeconds > 0 ? `<span class="pill pill-neutral">+${vm.delaySeconds}s</span>` : '',
+        !vm.exists ? `<span class="pill pill-red">Không thấy .vmx</span>` : ''
+      ].join('');
+
+      const runBtn = vm.isRunning
+        ? `<button class="icon-btn danger" data-vact="stop" title="Tắt êm (soft stop)">■</button>`
+        : `<button class="icon-btn" data-vact="start" title="Khởi động ngay">▶</button>`;
+
+      return `
+        <div class="app-row" data-id="${escapeHtml(vm.id)}">
+          <label class="switch">
+            <input type="checkbox" class="vm-toggle" ${vm.enabled ? 'checked' : ''} />
+            <span class="slider"></span>
+          </label>
+          <div class="app-icon-box">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="${vm.isRunning ? '#34d399' : '#a1a1aa'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="7" rx="2"/><rect x="2" y="14" width="20" height="7" rx="2"/><line x1="6" y1="6.5" x2="6.01" y2="6.5"/><line x1="6" y1="17.5" x2="6.01" y2="17.5"/></svg>
+          </div>
+          <div class="app-main">
+            <div class="app-title-row">
+              <span class="app-name">${escapeHtml(vm.name)}</span>
+              ${badges}
+            </div>
+            <div class="app-path">${escapeHtml(vm.vmxPath)}${vm.notes ? ' · ' + escapeHtml(vm.notes) : ''}</div>
+          </div>
+          <div class="app-actions">
+            <button class="icon-btn" data-vact="up" title="Lên" ${idx === 0 ? 'disabled' : ''}>↑</button>
+            <button class="icon-btn" data-vact="down" title="Xuống" ${idx === vms.length - 1 ? 'disabled' : ''}>↓</button>
+            ${runBtn}
+            <button class="icon-btn" data-vact="edit" title="Sửa">✎</button>
+            <button class="icon-btn danger" data-vact="delete" title="Xóa">✕</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function openVmModal(vm = null) {
+    document.getElementById('modal-vm-title').textContent = vm ? 'Chỉnh sửa máy ảo' : 'Thêm máy ảo VMware';
+    document.getElementById('edit-vm-id').value = vm ? vm.id : '';
+    document.getElementById('edit-vm-name').value = vm ? vm.name : '';
+    document.getElementById('edit-vm-path').value = vm ? vm.vmxPath : '';
+    document.getElementById('edit-vm-delay').value = vm ? (vm.delaySeconds || 0) : 0;
+    document.getElementById('edit-vm-notes').value = vm ? (vm.notes || '') : '';
+    document.getElementById('edit-vm-headless').checked = vm ? !!vm.headless : true;
+    document.getElementById('modal-vm-editor').classList.remove('hidden');
+  }
+
+  function closeVmModal() {
+    document.getElementById('modal-vm-editor').classList.add('hidden');
+  }
+
+  document.getElementById('btn-close-vm-modal').addEventListener('click', closeVmModal);
+  document.getElementById('btn-cancel-vm-modal').addEventListener('click', closeVmModal);
+
+  document.getElementById('btn-save-vm-modal').addEventListener('click', async () => {
+    try {
+      const id = document.getElementById('edit-vm-id').value;
+      const existing = id ? (state.vmware?.vms || []).find((v) => v.id === id) : null;
+      state = await rpc('saveVm', {
+        id: id || undefined,
+        name: document.getElementById('edit-vm-name').value.trim(),
+        vmxPath: document.getElementById('edit-vm-path').value.trim(),
+        delaySeconds: parseInt(document.getElementById('edit-vm-delay').value, 10) || 0,
+        notes: document.getElementById('edit-vm-notes').value.trim(),
+        headless: document.getElementById('edit-vm-headless').checked,
+        enabled: existing ? existing.enabled : true
+      });
+      closeVmModal();
+      renderAll();
+      toast('Đã lưu cấu hình máy ảo', '', 'success');
+    } catch (err) {
+      toast('Lỗi lưu máy ảo', err.message, 'error');
+    }
+  });
+
+  document.getElementById('btn-vm-refresh').addEventListener('click', async () => {
+    state = await rpc('refreshVms');
+    renderVmware();
+    toast('Đã cập nhật trạng thái máy ảo', '', 'info');
+  });
+
+  document.getElementById('btn-vm-scan').addEventListener('click', async () => {
+    try {
+      const res = await rpc('scanVmwareVms');
+      state = res.state;
+      renderAll();
+      if (res.added > 0) {
+        toast(`Đã thêm ${res.added} máy ảo mới`, `Tìm thấy tổng ${res.total} máy ảo trong VMware.`, 'success');
+      } else if (res.total > 0) {
+        toast('Không có máy ảo mới', `Tất cả ${res.total} máy ảo đã có trong danh sách.`, 'info');
+      } else {
+        toast('Không tìm thấy máy ảo', 'Hãy thử bấm "+ Thêm file .vmx" để chọn thủ công.', 'info');
+      }
+    } catch (err) {
+      toast('Lỗi quét máy ảo', err.message, 'error');
+    }
+  });
+
+  document.getElementById('btn-vm-browse').addEventListener('click', async () => {
+    state = await rpc('browseVmFile');
+    renderAll();
+  });
+
+  document.getElementById('btn-vm-browse-vmrun').addEventListener('click', async () => {
+    state = await rpc('browseVmrunFile');
+    renderVmware();
+  });
+
+  document.getElementById('btn-vm-run-all').addEventListener('click', async () => {
+    toast('Đang khởi động các máy ảo...', 'Vui lòng chờ giây lát.', 'info');
+    try {
+      const res = await rpc('runAllVmsNow');
+      state = res.state;
+      renderAll();
+      toast('Hoàn tất khởi chạy VM', `Đã bật: ${res.startedCount}, Đang chạy sẵn: ${res.skippedCount}, Lỗi: ${res.failedCount}`, res.failedCount > 0 ? 'error' : 'success');
+    } catch (err) {
+      toast('Lỗi khởi chạy VM', err.message, 'error');
+    }
+  });
+
+  async function saveVmSettingsFromUi() {
+    state = await rpc('saveVmwareSettings', {
+      autoStartEnabled: document.getElementById('vm-autostart-enabled').checked,
+      stopVmsOnShutdown: document.getElementById('vm-stop-shutdown').checked,
+      vmrunPath: state.vmware?.vmrunPath || ''
+    });
+    renderVmware();
+  }
+  document.getElementById('vm-autostart-enabled').addEventListener('change', saveVmSettingsFromUi);
+  document.getElementById('vm-stop-shutdown').addEventListener('change', saveVmSettingsFromUi);
+
+  document.getElementById('vms-list').addEventListener('change', async (e) => {
+    if (!e.target.classList.contains('vm-toggle')) return;
+    const id = e.target.closest('.app-row').dataset.id;
+    state = await rpc('toggleVmEnabled', { id, enabled: e.target.checked });
+    renderVmware();
+  });
+
+  document.getElementById('vms-list').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-vact]');
+    if (!btn) return;
+    const row = btn.closest('.app-row');
+    const id = row.dataset.id;
+    const act = btn.dataset.vact;
+    const vms = state.vmware?.vms || [];
+
+    if (act === 'edit') {
+      const vm = vms.find((v) => v.id === id);
+      if (vm) openVmModal(vm);
+    } else if (act === 'delete') {
+      state = await rpc('deleteVm', { id });
+      renderVmware();
+      toast('Đã xóa máy ảo khỏi danh sách', '', 'info');
+    } else if (act === 'start') {
+      toast('Đang bật máy ảo...', '', 'info');
+      try {
+        const res = await rpc('startSingleVm', { id });
+        state = res.state;
+        renderAll();
+        toast(res.vmName, res.detail, res.outcome === 'Failed' ? 'error' : 'success');
+      } catch (err) {
+        toast('Lỗi bật máy ảo', err.message, 'error');
+      }
+    } else if (act === 'stop') {
+      toast('Đang gửi lệnh tắt máy ảo...', '', 'info');
+      try {
+        const res = await rpc('stopSingleVm', { id });
+        state = res.state;
+        renderAll();
+        toast(res.vmName, res.detail, res.ok ? 'success' : 'error');
+      } catch (err) {
+        toast('Lỗi tắt máy ảo', err.message, 'error');
+      }
+    } else if (act === 'up' || act === 'down') {
+      const ids = vms.map((v) => v.id);
+      const idx = ids.indexOf(id);
+      const swapIdx = act === 'up' ? idx - 1 : idx + 1;
+      if (idx < 0 || swapIdx < 0 || swapIdx >= ids.length) return;
+      [ids[idx], ids[swapIdx]] = [ids[swapIdx], ids[idx]];
+      state = await rpc('reorderVms', { orderedIds: ids });
+      renderVmware();
+    }
+  });
 
   // Boot
   rpc('getState').then((s) => {

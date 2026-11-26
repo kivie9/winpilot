@@ -372,6 +372,59 @@ public sealed class CoreServicesTests : IDisposable
         Assert.Contains("192.168.1.99", deliveredBody);
     }
 
+    [Fact]
+    public void VmwareService_ParsesInventoryAndRunningList()
+    {
+        string inventory = """
+            .encoding = "windows-1252"
+            vmlist5.config = "D:\mayao\ubuntu\Ubuntu 64-bit.vmx"
+            vmlist5.DisplayName = "Ubuntu 64-bit"
+            vmlist1.config = ""
+            vmlist2.config = "D:\mayao\kali\Kali.vmx"
+            """;
+
+        var discovered = VmwareService.ParseInventoryContent(inventory);
+        Assert.Equal(2, discovered.Count);
+        Assert.Equal("Ubuntu 64-bit", discovered[0].Name);
+        Assert.Equal(@"D:\mayao\ubuntu\Ubuntu 64-bit.vmx", discovered[0].VmxPath);
+        Assert.Equal("Kali", discovered[1].Name);
+
+        string vmrunOut = """
+            Total running VMs: 1
+            D:\mayao\ubuntu\Ubuntu 64-bit.vmx
+            """;
+        var running = VmwareService.ParseVmrunListOutput(vmrunOut);
+        Assert.Single(running);
+        Assert.Contains(@"d:\mayao\ubuntu\ubuntu 64-bit.vmx", running);
+    }
+
+    [Fact]
+    public void VmwareService_StartVm_UsesNogui_And_SkipsIfAlreadyRunning()
+    {
+        string fakeVmrun = Path.Combine(_tempDir, "vmrun.exe");
+        string fakeVmx = Path.Combine(_tempDir, "Ubuntu.vmx");
+        File.WriteAllText(fakeVmrun, "");
+        File.WriteAllText(fakeVmx, "displayName = \"Ubuntu Test\"\n");
+
+        var calls = new List<string>();
+        var svc = new VmwareService(new ActivityLogger(), (file, args, _) =>
+        {
+            calls.Add(args);
+            if (args == "list") return (0, "Total running VMs: 0\n", "");
+            return (0, "", "");
+        });
+
+        var vm = new VmwareVmEntry { Name = "Ubuntu", VmxPath = fakeVmx, Headless = true };
+        var running = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var first = svc.StartVm(vm, fakeVmrun, running);
+        Assert.Equal(VmLaunchOutcome.Started, first.Outcome);
+        Assert.Contains($"-T ws start \"{fakeVmx}\" nogui", calls);
+
+        var second = svc.StartVm(vm, fakeVmrun, running);
+        Assert.Equal(VmLaunchOutcome.SkippedAlreadyRunning, second.Outcome);
+    }
+
     private sealed class StubHttpHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, Task<HttpResponseMessage>> _responder;

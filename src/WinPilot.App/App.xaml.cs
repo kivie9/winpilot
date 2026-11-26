@@ -22,6 +22,7 @@ public partial class App : Application
     private AppLauncherService _launcher = null!;
     private TelegramNotificationService _telegram = null!;
     private WebhookNotificationService _webhooks = null!;
+    private VmwareService _vmware = null!;
     private AutomationOrchestrator _orchestrator = null!;
     private TelegramCommandListener _commandListener = null!;
 
@@ -64,7 +65,8 @@ public partial class App : Application
         _launcher = new AppLauncherService(_logger);
         _telegram = new TelegramNotificationService(logger: _logger);
         _webhooks = new WebhookNotificationService(logger: _logger);
-        _orchestrator = new AutomationOrchestrator(_configService, _launcher, _telegram, _logger, _webhooks);
+        _vmware = new VmwareService(_logger);
+        _orchestrator = new AutomationOrchestrator(_configService, _launcher, _telegram, _logger, _webhooks, vmware: _vmware);
         _commandListener = new TelegramCommandListener(() => _config, _orchestrator, _logger);
 
         _config = _configService.Load();
@@ -108,6 +110,7 @@ public partial class App : Application
             _launcher,
             _telegram,
             _webhooks,
+            _vmware,
             _orchestrator,
             _commandListener,
             () => _trayService?.UpdateState(_config),

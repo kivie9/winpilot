@@ -64,10 +64,13 @@ public sealed class ConfigService
                 config.Conditions ??= new StartupConditions();
                 config.Telegram ??= new TelegramSettings();
                 config.ExtraWebhooks ??= new List<CustomWebhookChannel>();
+                config.Vmware ??= new VmwareSettings();
+                config.Vmware.Vms ??= new List<VmwareVmEntry>();
                 config.Stats ??= new RuntimeStats();
 
                 config.Telegram.BotToken = _protector.Unprotect(config.Telegram.EncryptedBotToken);
                 NormalizeOrder(config.StartupApps);
+                NormalizeVmOrder(config.Vmware.Vms);
                 return config;
             }
             catch
@@ -84,6 +87,10 @@ public sealed class ConfigService
         {
             Directory.CreateDirectory(ConfigDirectory);
             NormalizeOrder(config.StartupApps);
+            if (config.Vmware?.Vms is not null)
+            {
+                NormalizeVmOrder(config.Vmware.Vms);
+            }
             config.Telegram.EncryptedBotToken = _protector.Protect(config.Telegram.BotToken.Trim());
 
             string json = JsonSerializer.Serialize(config, JsonOptions);
@@ -121,10 +128,13 @@ public sealed class ConfigService
         imported.StartupApps ??= new List<StartupAppEntry>();
         imported.Telegram ??= new TelegramSettings();
         imported.ExtraWebhooks ??= new List<CustomWebhookChannel>();
+        imported.Vmware ??= new VmwareSettings();
+        imported.Vmware.Vms ??= new List<VmwareVmEntry>();
         imported.Stats ??= new RuntimeStats();
 
         imported.Telegram.BotToken = _protector.Unprotect(imported.Telegram.EncryptedBotToken);
         NormalizeOrder(imported.StartupApps);
+        NormalizeVmOrder(imported.Vmware.Vms);
         return imported;
     }
 
@@ -133,6 +143,14 @@ public sealed class ConfigService
         for (int i = 0; i < apps.Count; i++)
         {
             apps[i].Order = i;
+        }
+    }
+
+    private static void NormalizeVmOrder(List<VmwareVmEntry> vms)
+    {
+        for (int i = 0; i < vms.Count; i++)
+        {
+            vms[i].Order = i;
         }
     }
 

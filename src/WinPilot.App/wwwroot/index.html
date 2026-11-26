@@ -32,6 +32,11 @@
           <span>Ứng dụng khởi động</span>
           <span class="nav-badge" id="nav-apps-count">0</span>
         </button>
+        <button class="nav-item" data-tab="vmware">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="7" rx="2"/><rect x="2" y="14" width="20" height="7" rx="2"/><line x1="6" y1="6.5" x2="6.01" y2="6.5"/><line x1="6" y1="17.5" x2="6.01" y2="17.5"/></svg>
+          <span>Máy ảo VMware</span>
+          <span class="nav-badge" id="nav-vms-count">0</span>
+        </button>
         <button class="nav-item" data-tab="telegram">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
           <span>Thông báo &amp; Kênh</span>
@@ -222,6 +227,65 @@
 
           <div class="card-footer-right">
             <button class="btn btn-secondary btn-sm" id="btn-save-conditions" type="button">Lưu điều kiện</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2b. VMWARE VMS -->
+      <section id="tab-vmware" class="view">
+        <header class="page-header">
+          <div>
+            <h1>Máy ảo VMware</h1>
+            <p class="subtitle">Tự động bật nhiều máy ảo chạy ngầm (nogui) khi mở máy mà không cần mở cửa sổ VMware.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary" id="btn-vm-refresh" type="button">Làm mới trạng thái</button>
+            <button class="btn btn-secondary" id="btn-vm-scan" type="button">Quét từ VMware</button>
+            <button class="btn btn-secondary" id="btn-vm-browse" type="button">+ Thêm file .vmx</button>
+            <button class="btn btn-primary" id="btn-vm-run-all" type="button">▶ Chạy tất cả VM</button>
+          </div>
+        </header>
+
+        <div class="card section-gap">
+          <div class="row-between section-gap-sm">
+            <div>
+              <h2>Cấu hình tự động &amp; vmrun.exe</h2>
+              <p class="card-desc" id="vm-vmrun-status">Đang kiểm tra vmrun.exe...</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btn-vm-browse-vmrun" type="button">Chọn vmrun.exe...</button>
+          </div>
+
+          <div class="setting-row compact">
+            <div>
+              <div class="setting-title">Tự động khởi chạy máy ảo cùng Windows</div>
+              <div class="setting-desc">Bật các máy ảo đang được kích hoạt bên dưới theo thứ tự và độ trễ đã đặt.</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="vm-autostart-enabled" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row compact no-border">
+            <div>
+              <div class="setting-title">Tự động tắt êm (soft stop) máy ảo khi tắt Windows</div>
+              <div class="setting-desc">Gửi lệnh tắt an toàn tới các máy ảo đang chạy khi Windows Shutdown / Logoff.</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="vm-stop-shutdown" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="card list-card">
+          <div id="vms-list" class="apps-list"></div>
+          <div id="vms-empty" class="empty-state hidden">
+            <div class="empty-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="20" height="7" rx="2"/><rect x="2" y="14" width="20" height="7" rx="2"/><line x1="6" y1="6.5" x2="6.01" y2="6.5"/><line x1="6" y1="17.5" x2="6.01" y2="17.5"/></svg>
+            </div>
+            <div class="empty-title">Chưa có máy ảo VMware nào trong danh sách</div>
+            <div class="empty-desc">Bấm <strong>Quét từ VMware</strong> để tự động lấy danh sách máy ảo đã cài, hoặc <strong>+ Thêm file .vmx</strong>.</div>
           </div>
         </div>
       </section>
@@ -683,6 +747,48 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" id="btn-cancel-wh-modal" type="button">Hủy</button>
         <button class="btn btn-primary" id="btn-save-wh-modal" type="button">Lưu Webhook</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: VM Editor -->
+  <div class="modal-backdrop hidden" id="modal-vm-editor">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-vm-title">Cấu hình máy ảo VMware</h3>
+        <button class="icon-btn" id="btn-close-vm-modal" type="button">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-vm-id" />
+        <div class="field-group">
+          <label class="field-label">Tên máy ảo</label>
+          <input type="text" id="edit-vm-name" placeholder="Ví dụ: Ubuntu Server 24.04" />
+        </div>
+        <div class="field-group">
+          <label class="field-label">Đường dẫn file .vmx</label>
+          <input type="text" id="edit-vm-path" placeholder="D:\VM\Ubuntu\Ubuntu 64-bit.vmx" />
+        </div>
+        <div class="two-col-grid">
+          <div class="field-group">
+            <label class="field-label">Độ trễ trước khi bật (giây)</label>
+            <input type="number" id="edit-vm-delay" min="0" max="600" value="0" />
+          </div>
+          <div class="field-group">
+            <label class="field-label">Ghi chú (tùy chọn)</label>
+            <input type="text" id="edit-vm-notes" placeholder="VD: Chạy Docker / SSH" />
+          </div>
+        </div>
+        <div class="setting-row compact no-border">
+          <div>
+            <div class="setting-title">Chạy ngầm không mở cửa sổ VMware (nogui)</div>
+            <div class="setting-desc">Tắt tùy chọn này nếu bạn muốn hiện giao diện cửa sổ VMware khi bật.</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="edit-vm-headless" checked /><span class="slider"></span></label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-cancel-vm-modal" type="button">Hủy</button>
+        <button class="btn btn-primary" id="btn-save-vm-modal" type="button">Lưu máy ảo</button>
       </div>
     </div>
   </div>

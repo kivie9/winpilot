@@ -14,6 +14,7 @@ public sealed class AutomationOrchestrator
     private readonly ActivityLogger _logger;
     private readonly WebhookNotificationService _webhooks;
     private readonly ConditionEvaluator _conditions;
+    private readonly VmwareService _vmware;
     private int _shutdownGuard;
 
     public string LastStartupStatus { get; private set; } = "Chưa chạy phiên nào";
@@ -28,7 +29,8 @@ public sealed class AutomationOrchestrator
         TelegramNotificationService telegram,
         ActivityLogger logger,
         WebhookNotificationService? webhooks = null,
-        ConditionEvaluator? conditions = null)
+        ConditionEvaluator? conditions = null,
+        VmwareService? vmware = null)
     {
         _configService = configService;
         _launcher = launcher;
@@ -36,6 +38,7 @@ public sealed class AutomationOrchestrator
         _logger = logger;
         _webhooks = webhooks ?? new WebhookNotificationService(logger: logger);
         _conditions = conditions ?? new ConditionEvaluator();
+        _vmware = vmware ?? new VmwareService(logger);
     }
 
     public async Task RunStartupWorkflowAsync(
@@ -76,31 +79,48 @@ public sealed class AutomationOrchestrator
             .ToList();
 
         var enabledApps = profileApps.Where(a => a.Enabled).ToList();
+        var enabledVms = config.Vmware.AutoStartEnabled
+            ? config.Vmware.Vms.Where(v => v.Enabled).OrderBy(v => v.Order).ToList()
+            : new List<VmwareVmEntry>();
 
         StartupLaunchSummary launchSummary;
+        VmBatchSummary vmSummary;
         NotificationBatchResult? notifyResult = null;
 
         bool shouldSendTelegram = config.Telegram.Enabled && config.Telegram.NotifyOnStartup;
 
         if (shouldSendTelegram && config.Telegram.StartupSendMode == StartupNotificationMode.ParallelImmediate)
         {
-            var launchTask = _launcher.LaunchEnabledAppsAsync(profileApps, cancellationToken);
-            var notifyTask = SendStartupTelegramAsync(config, enabledApps.Select(a => a.Name).ToList(), cancellationToken);
+            var initialNames = enabledApps.Select(a => a.Name)
+                .Concat(enabledVms.Select(v => $"[VM] {v.Name}"))
+                .ToList();
 
-            await Task.WhenAll(launchTask, notifyTask).ConfigureAwait(false);
+            var launchTask = _launcher.LaunchEnabledAppsAsync(profileApps, cancellationToken);
+            var vmTask = _vmware.StartEnabledVmsAsync(config.Vmware, cancellationToken);
+            var notifyTask = SendStartupTelegramAsync(config, initialNames, cancellationToken);
+
+            await Task.WhenAll(launchTask, vmTask, notifyTask).ConfigureAwait(false);
             launchSummary = await launchTask.ConfigureAwait(false);
+            vmSummary = await vmTask.ConfigureAwait(false);
             notifyResult = await notifyTask.ConfigureAwait(false);
         }
         else
         {
-            launchSummary = await _launcher.LaunchEnabledAppsAsync(profileApps, cancellationToken)
-                .ConfigureAwait(false);
+            var launchTask = _launcher.LaunchEnabledAppsAsync(profileApps, cancellationToken);
+            var vmTask = _vmware.StartEnabledVmsAsync(config.Vmware, cancellationToken);
+            await Task.WhenAll(launchTask, vmTask).ConfigureAwait(false);
+
+            launchSummary = await launchTask.ConfigureAwait(false);
+            vmSummary = await vmTask.ConfigureAwait(false);
 
             if (shouldSendTelegram)
             {
                 var launchedNames = launchSummary.Results
                     .Where(r => r.Outcome is LaunchOutcome.Launched or LaunchOutcome.SkippedAlreadyRunning)
                     .Select(r => $"{r.App.Name} ({(r.Outcome == LaunchOutcome.Launched ? "Đã mở" : "Đang chạy")})")
+                    .Concat(vmSummary.Results
+                        .Where(r => r.Outcome is VmLaunchOutcome.Started or VmLaunchOutcome.SkippedAlreadyRunning)
+                        .Select(r => $"[VM] {r.Vm.Name} ({(r.Outcome == VmLaunchOutcome.Started ? "Đã bật" : "Đang chạy")})"))
                     .ToList();
                 notifyResult = await SendStartupTelegramAsync(config, launchedNames, cancellationToken)
                     .ConfigureAwait(false);
@@ -112,11 +132,17 @@ public sealed class AutomationOrchestrator
             (launchSummary.SkippedCount > 0 ? $", bỏ qua {launchSummary.SkippedCount}" : "") +
             (launchSummary.FailedCount > 0 ? $", lỗi {launchSummary.FailedCount}" : "");
 
+        string vmPart = (vmSummary.StartedCount + vmSummary.SkippedCount + vmSummary.FailedCount) > 0
+            ? $" • VM: {vmSummary.StartedCount} bật" +
+              (vmSummary.SkippedCount > 0 ? $", {vmSummary.SkippedCount} đang chạy" : "") +
+              (vmSummary.FailedCount > 0 ? $", {vmSummary.FailedCount} lỗi" : "")
+            : "";
+
         string tgPart = notifyResult is null
             ? "Telegram tắt"
             : notifyResult.AllSucceeded ? "Telegram OK" : "Telegram lỗi";
 
-        LastStartupStatus = $"{appPart} • {tgPart} ({LastStartupRunAt:HH:mm:ss})";
+        LastStartupStatus = $"{appPart}{vmPart} • {tgPart} ({LastStartupRunAt:HH:mm:ss})";
         config.Stats.LastStartupRunAt = LastStartupRunAt;
         config.Stats.LastStartupSummary = LastStartupStatus;
         TryPersistStats(config);
@@ -298,6 +324,17 @@ public sealed class AutomationOrchestrator
 
     public NotificationBatchResult? ExecuteShutdownNotificationSync(AppConfig config, ShutdownEventKind kind)
     {
+        bool isShutdownSequence = kind is ShutdownEventKind.ShutdownOrRestart or ShutdownEventKind.Logoff;
+        if (isShutdownSequence && Interlocked.Exchange(ref _shutdownGuard, 1) == 1)
+        {
+            return null;
+        }
+
+        if (isShutdownSequence && config.Vmware.StopVmsOnShutdown)
+        {
+            _vmware.StopManagedVmsOnShutdown(config.Vmware);
+        }
+
         if (!config.Telegram.Enabled) return null;
 
         bool enabledForKind = kind switch
@@ -313,12 +350,6 @@ public sealed class AutomationOrchestrator
         };
 
         if (!enabledForKind) return null;
-
-        bool isShutdownSequence = kind is ShutdownEventKind.ShutdownOrRestart or ShutdownEventKind.Logoff;
-        if (isShutdownSequence && Interlocked.Exchange(ref _shutdownGuard, 1) == 1)
-        {
-            return null;
-        }
 
         string eventLabel = kind switch
         {
