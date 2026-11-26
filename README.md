@@ -36,6 +36,6 @@
 Workflow tại `.github/workflows/release.yml` tự động chạy test, build `WinPilot.exe` + `WinPilot-win-x64.zip` và tạo **GitHub Release** mỗi khi push tag `v*.*.*`:
 
 ```powershell
-git tag v1.0.0
-git push origin v1.0.0
+git tag v0.1.0
+git push origin v0.1.0
 ```
